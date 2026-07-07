@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Quản lý điểm danh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --blue:#1a73e8;
+    --blue-dark:#1557b0;
+    --blue-tint:#e8f0fe;
+    --red:#d93025;
+    --red-tint:#fce8e6;
+    --green:#188038;
+    --green-tint:#e6f4ea;
+    --amber:#f29900;
+    --amber-tint:#fef7e0;
+    --bg:#f1f3f4;
+    --surface:#ffffff;
+    --outline:#dadce0;
+    --text:#202124;
+    --text-2:#5f6368;
+    --radius:12px;
+    --shadow-1: 0 1px 2px 0 rgba(60,64,67,.30), 0 1px 3px 1px rgba(60,64,67,.15);
+    --shadow-2: 0 1px 3px 0 rgba(60,64,67,.30), 0 4px 8px 3px rgba(60,64,67,.15);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    font-family:'Roboto',system-ui,sans-serif;
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:96px;
+  }
+  h1,h2,h3,.brand{font-family:'Google Sans','Roboto',sans-serif;}
+
+  /* App bar */
+  .appbar{
+    background:var(--surface);
+    box-shadow:var(--shadow-1);
+    position:sticky; top:0; z-index:30;
+  }
+  .appbar-inner{
+    max-width:1100px; margin:0 auto; padding:14px 20px;
+    display:flex; align-items:center; gap:14px;
+  }
+  .appbar .logo{
+    width:40px;height:40px;border-radius:50%;
+    background:var(--green-tint);
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px; flex-shrink:0;
+  }
+  .appbar h1{font-size:20px; font-weight:500; margin:0; letter-spacing:.1px;}
+  .appbar .sub{font-size:12.5px; color:var(--text-2); margin-top:1px;}
+  .sync-pill{
+    margin-left:auto; display:flex; align-items:center; gap:6px;
+    font-size:12.5px; color:var(--text-2); padding:6px 12px;
+    border-radius:100px; background:var(--bg); white-space:nowrap;
+  }
+  .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green); transition:background .2s;}
+  .sync-dot.busy{background:var(--amber); animation:pulse 1s infinite;}
+  .sync-dot.err{background:var(--red);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+  /* Tab bar */
+  .tabbar-wrap{
+    background:var(--surface); border-bottom:1px solid var(--outline);
+    position:sticky; top:69px; z-index:29;
+  }
+  .tabbar{
+    max-width:1100px; margin:0 auto; padding:0 20px; display:flex; gap:4px;
+    overflow-x:auto; scrollbar-width:none;
+  }
+  .tabbar::-webkit-scrollbar{display:none;}
+  .tab-btn{
+    background:none; border:none; padding:14px 18px; font-family:inherit;
+    font-size:14px; font-weight:500; color:var(--text-2); cursor:pointer;
+    display:flex; align-items:center; gap:8px; white-space:nowrap;
+    border-bottom:3px solid transparent; transition:color .15s, border-color .15s;
+    position:relative; top:1px;
+  }
+  .tab-btn .dot-badge{
+    background:var(--blue); color:#fff; font-size:10.5px; font-weight:700;
+    border-radius:100px; padding:1px 7px; min-width:16px; text-align:center;
+  }
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--blue); border-bottom-color:var(--blue);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block; animation:fadein .18s ease-out;}
+  @keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+  .container{max-width:1100px; margin:0 auto; padding:20px;}
+
+  /* Cards */
+  .card{
+    background:var(--surface); border-radius:var(--radius);
+    box-shadow:var(--shadow-1); padding:20px 22px; margin-bottom:20px;
+  }
+  .card-head{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+  .card-head .icon-chip{
+    width:34px;height:34px;border-radius:9px; display:flex; align-items:center;
+    justify-content:center; font-size:17px; flex-shrink:0;
+  }
+  .card-head h2{font-size:16px; font-weight:500; margin:0; color:var(--text);}
+  .chip-green{background:var(--green-tint);}
+  .chip-blue{background:var(--blue-tint);}
+  .chip-amber{background:var(--amber-tint);}
+  .chip-red{background:var(--red-tint);}
+
+  /* Inputs */
+  .field{position:relative; flex:1; min-width:180px;}
+  .field label{
+    position:absolute; left:12px; top:-8px; background:var(--surface);
+    padding:0 6px; font-size:11.5px; color:var(--text-2); font-weight:500;
+  }
+  input[type=text], input[type=number], input[type=date], textarea, select{
+    width:100%; border:1.5px solid var(--outline); border-radius:8px;
+    padding:12px 12px; font-size:14.5px; font-family:inherit; color:var(--text);
+    background:var(--surface); transition:border-color .15s, box-shadow .15s;
+  }
+  input:focus, textarea:focus, select:focus{
+    outline:none; border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-tint);
+  }
+  textarea{resize:vertical; min-height:110px; line-height:1.5;}
+  select{cursor:pointer; appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%235f6368'><path d='M7 10l5 5 5-5z'/></svg>"); background-repeat:no-repeat; background-position:right 10px center; padding-right:34px;}
+
+  .row{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;}
+
+  /* Buttons */
+  .btn{
+    border:none; border-radius:100px; padding:10px 22px; font-size:14px;
+    font-weight:500; font-family:inherit; cursor:pointer; display:inline-flex;
+    align-items:center; gap:8px; transition:box-shadow .15s, background .15s, transform .05s;
+    white-space:nowrap;
+  }
+  .btn:active{transform:scale(.98);}
+  .btn-filled{background:var(--blue); color:#fff;}
+  .btn-filled:hover{background:var(--blue-dark); box-shadow:var(--shadow-1);}
+  .btn-filled:disabled{background:#e0e0e0; color:#9aa0a6; cursor:not-allowed;}
+  .btn-danger{background:var(--red); color:#fff;}
+  .btn-danger:hover{background:#b3261e; box-shadow:var(--shadow-1);}
+  .btn-outline{background:transparent; color:var(--blue); border:1.5px solid var(--outline);}
+  .btn-outline:hover{background:var(--blue-tint); border-color:var(--blue);}
+  .btn-outline.danger{color:var(--red);}
+  .btn-outline.danger:hover{background:var(--red-tint); border-color:var(--red);}
+  .btn-text{background:transparent; color:var(--blue); padding:10px 14px;}
+  .btn-text:hover{background:var(--blue-tint);}
+  .btn-sm{padding:7px 14px; font-size:13px;}
+  .btn-block{width:100%; justify-content:center;}
+
+  .file-btn{position:relative; overflow:hidden;}
+  .file-btn input[type=file]{
+    position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%;
+  }
+
+  /* Stepper for session number */
+  .stepper{display:flex; align-items:center; gap:0; border:1.5px solid var(--outline); border-radius:8px; overflow:hidden; width:fit-content;}
+  .stepper button{
+    width:40px; height:44px; border:none; background:var(--surface); font-size:18px;
+    color:var(--blue); cursor:pointer; font-weight:600;
+  }
+  .stepper button:hover{background:var(--blue-tint);}
+  .stepper input{
+    width:64px; height:44px; text-align:center; border:none; border-left:1.5px solid var(--outline);
+    border-right:1.5px solid var(--outline); border-radius:0; font-size:15px; font-weight:500;
+  }
+  .stepper input:focus{box-shadow:none;}
+
+  .session-date-field{max-width:190px;}
+
+  /* Student grid */
+  #students-container{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:16px;
+  }
+  .empty-state{
+    text-align:center; padding:48px 20px; color:var(--text-2); background:var(--surface);
+    border-radius:var(--radius); box-shadow:var(--shadow-1);
+  }
+  .empty-state .emoji{font-size:40px; margin-bottom:10px;}
+
+  .student-card{
+    background:var(--surface); border-radius:var(--radius); padding:18px;
+    box-shadow:var(--shadow-1); display:flex; flex-direction:column; gap:12px;
+    transition:box-shadow .2s, transform .2s;
+  }
+  .student-card:hover{box-shadow:var(--shadow-2); transform:translateY(-2px);}
+  .student-top{display:flex; align-items:center; gap:12px;}
+  .tree-emoji{
+    font-size:30px; width:52px; height:52px; border-radius:50%; background:var(--green-tint);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .student-name{font-size:15px; font-weight:500; line-height:1.3; word-break:break-word;}
+  .stage-label{font-size:11.5px; color:var(--text-2); margin-top:2px;}
+
+  .stage-track{display:flex; gap:4px;}
+  .stage-seg{flex:1; height:6px; border-radius:4px; background:var(--outline);}
+  .stage-seg.filled{background:var(--green);}
+
+  .stats-row{display:flex; justify-content:space-between; font-size:12.5px; color:var(--text-2);}
+  .stats-row b{color:var(--text); font-weight:500;}
+
+  .mark-btn{
+    width:100%; padding:9px; border-radius:8px; border:none; font-weight:500;
+    font-size:13.5px; cursor:pointer; transition:background .15s;
+  }
+  .mark-btn.can{background:var(--green); color:#fff;}
+  .mark-btn.can:hover{background:#146c2e;}
+  .mark-btn.marked{background:var(--blue-tint); color:var(--blue);}
+  .mark-btn.done{background:#f1f3f4; color:#9aa0a6; cursor:not-allowed;}
+
+  /* Session banner */
+  .session-banner{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:6px;
+  }
+  .session-date-chip{
+    display:flex; align-items:center; gap:8px; background:var(--blue-tint); color:var(--blue-dark);
+    padding:8px 14px; border-radius:100px; font-size:13px; font-weight:500;
+  }
+
+  /* Legend */
+  .legend-track{display:flex; gap:8px; flex-wrap:wrap;}
+  .legend-item{
+    flex:1; min-width:110px; background:var(--bg); border-radius:10px; padding:12px 10px;
+    text-align:center;
+  }
+  .legend-item .e{font-size:22px;}
+  .legend-item .t{font-size:11.5px; color:var(--text-2); margin-top:4px; line-height:1.4;}
+
+  /* FAB */
+  .fab{
+    position:fixed; bottom:24px; right:24px; z-index:40;
+    background:var(--blue); color:#fff; border:none; border-radius:100px;
+    padding:14px 20px; font-size:14px; font-weight:500; box-shadow:var(--shadow-2);
+    cursor:pointer; display:flex; align-items:center; gap:8px;
+  }
+  .fab:hover{background:var(--blue-dark);}
+
+  /* Overlay / modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(32,33,36,.5); z-index:100;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .hidden{display:none !important;}
+  .dialog{
+    background:var(--surface); border-radius:16px; max-width:440px; width:100%;
+    padding:24px; box-shadow:var(--shadow-2); max-height:86vh; overflow:auto;
+  }
+  .dialog h3{font-size:18px; font-weight:500; margin:0 0 10px;}
+  .dialog p{font-size:14px; color:var(--text-2); line-height:1.55; margin:0 0 18px;}
+  .dialog .actions{display:flex; justify-content:flex-end; gap:8px; margin-top:8px;}
+  .guide-body strong{color:var(--text);}
+  .guide-body code{
+    display:block; background:var(--bg); padding:10px 12px; border-radius:8px;
+    font-size:12.5px; margin-top:6px; white-space:pre-wrap; font-family:monospace;
+  }
+  .guide-body .g-item{margin-bottom:16px; font-size:13.5px; line-height:1.6; color:var(--text);}
+  .close-x{position:absolute; top:14px; right:16px; background:none; border:none; font-size:20px; color:var(--text-2); cursor:pointer;}
+
+  /* Toasts */
+  #toast-wrap{position:fixed; bottom:24px; left:24px; z-index:200; display:flex; flex-direction:column; gap:10px;}
+  .toast{
+    background:#202124; color:#fff; padding:12px 18px; border-radius:8px; font-size:13.5px;
+    box-shadow:var(--shadow-2); animation:slideup .2s ease-out; max-width:340px;
+  }
+  .toast.err{background:#5c1a13;}
+  @keyframes slideup{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+
+  .loading-spinner{
+    width:16px;height:16px;border:2.5px solid var(--blue-tint); border-top-color:var(--blue);
+    border-radius:50%; animation:spin .7s linear infinite; display:inline-block;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .page-loading{
+    position:fixed; inset:0; background:var(--bg); z-index:500; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:14px;
+  }
+  .page-loading .loading-spinner{width:32px; height:32px; border-width:3.5px;}
+
+  @media (max-width: 640px){
+    .container{padding:14px;}
+    .card{padding:16px;}
+    .appbar h1{font-size:17px;}
+    .sync-pill span.txt{display:none;}
+    #students-container{grid-template-columns:repeat(auto-fill, minmax(160px,1fr));}
+    .tabbar-wrap{top:64px;}
+    .tab-btn{padding:12px 14px; font-size:13px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="page-loading" id="page-loading">
+  <div class="loading-spinner"></div>
+  <div style="color:var(--text-2); font-size:13.5px;">Đang kết nối tới Firebase…</div>
+</div>
+
+<div class="appbar">
+  <div class="appbar-inner">
+    <div class="logo">🌱</div>
+    <div>
+      <h1>Quản lý điểm danh</h1>
+      <div class="sub">Theo dõi tiến trình học tập theo lớp</div>
+    </div>
+    <div class="sync-pill" id="sync-pill">
+      <span class="sync-dot" id="sync-dot"></span>
+      <span class="txt" id="sync-text">Đã đồng bộ</span>
+    </div>
+  </div>
+</div>
+
+<div class="tabbar-wrap">
+  <div class="tabbar">
+    <button class="tab-btn active" data-tab="tab-class" onclick="switchTab('tab-class')">🏫 Lớp học</button>
+    <button class="tab-btn" data-tab="tab-students" onclick="switchTab('tab-students')">🧑‍🎓 Học sinh</button>
+    <button class="tab-btn" data-tab="tab-attend" onclick="switchTab('tab-attend')">✅ Điểm danh</button>
+    <button class="tab-btn" data-tab="tab-data" onclick="switchTab('tab-data')">📊 Dữ liệu</button>
+    <button class="tab-btn" data-tab="tab-progress" onclick="switchTab('tab-progress')">🌳 Tiến trình</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- TAB: Quản lý lớp -->
+  <div class="tab-panel active" id="tab-class">
+    <section class="card">
+      <div class="card-head"><div class="icon-chip chip-blue">🏫</div><h2>Tạo lớp mới</h2></div>
+      <div class="row">
+        <div class="field"><label>Tên lớp mới</label>
+          <input id="new-class-name" type="text" placeholder="VD: Lớp Tiếng Anh 6A" />
+        </div>
+        <div class="field" style="max-width:120px; min-width:100px;"><label>Số buổi</label>
+          <input id="new-class-sessions" type="number" min="1" value="40" />
+        </div>
+        <button class="btn btn-filled" onclick="createNewClass()">＋ Tạo lớp</button>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-head"><div class="icon-chip chip-red">⚙️</div><h2>Chọn / xoá lớp</h2></div>
+      <div class="row">
+        <div class="field"><label>Lớp hiện tại</label>
+          <select id="class-selector" onchange="loadClass()"></select>
+        </div>
+        <button class="btn btn-outline danger" onclick="deleteCurrentClass()">🗑 Xoá lớp</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- TAB: Nhập học sinh -->
+  <div class="tab-panel" id="tab-students">
+    <section class="card">
+      <div class="card-head"><div class="icon-chip chip-green">🧑‍🎓</div><h2>Nhập danh sách học sinh</h2></div>
+      <div class="field" style="margin-bottom:14px;"><label>Mỗi tên một dòng</label>
+        <textarea id="student-input" placeholder="Nguyễn Văn A&#10;Trần Thị B"></textarea>
+      </div>
+      <button class="btn btn-filled" onclick="startTracking()">🚀 Bắt đầu theo dõi</button>
+    </section>
+  </div>
+
+  <!-- TAB: Điểm danh -->
+  <div class="tab-panel" id="tab-attend">
+    <section class="card">
+      <div class="card-head"><div class="icon-chip chip-amber">📅</div><h2>Buổi học hiện tại</h2></div>
+      <div class="session-banner">
+        <div class="stepper">
+          <button onclick="stepSession(-1)">−</button>
+          <input id="current-session" type="number" min="1" value="1" onchange="onSessionChange()" />
+          <button onclick="stepSession(1)">＋</button>
+        </div>
+        <div class="field session-date-field" style="min-width:150px;"><label>Ngày học</label>
+          <input id="session-date" type="date" onchange="saveSessionDate()" />
+        </div>
+        <div class="session-date-chip" id="session-date-chip">📌 Buổi 1</div>
+      </div>
+    </section>
+
+    <section style="margin-bottom:20px;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+        <h2 style="font-size:16px; font-weight:500; margin:0;">📋 Danh sách học sinh</h2>
+      </div>
+      <div id="students-container"></div>
+    </section>
+  </div>
+
+  <!-- TAB: Xuất/nhập + Reset -->
+  <div class="tab-panel" id="tab-data">
+    <section class="card">
+      <div class="card-head"><div class="icon-chip chip-blue">📤</div><h2>Xuất / nhập dữ liệu</h2></div>
+      <div class="row">
+        <button class="btn btn-outline" onclick="exportToExcel()">📤 Xuất Excel</button>
+        <button class="btn btn-outline file-btn">
+          📥 Nhập file .xlsx
+          <input id="import-file" type="file" accept=".xlsx" onchange="importFromExcel(event)" />
+        </button>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-head"><div class="icon-chip chip-red">♻️</div><h2>Reset điểm danh</h2></div>
+      <p style="font-size:13.5px; color:var(--text-2); margin:0 0 14px;">Xoá toàn bộ dữ liệu điểm danh của lớp hiện tại. Danh sách học sinh và số buổi vẫn được giữ nguyên.</p>
+      <button class="btn btn-danger" onclick="resetAllData()">Reset điểm danh lớp hiện tại</button>
+    </section>
+  </div>
+
+  <!-- TAB: Tiến trình -->
+  <div class="tab-panel" id="tab-progress">
+    <section class="card">
+      <div class="card-head"><div class="icon-chip chip-green">🌳</div><h2>Tiến trình phát triển</h2></div>
+      <div class="legend-track" id="legend"></div>
+    </section>
+  </div>
+
+</div>
+
+<button class="fab" onclick="openGuide()">📖 Hướng dẫn</button>
+
+<!-- Modal hướng dẫn -->
+<div class="overlay hidden" id="guide-modal">
+  <div class="dialog" style="max-width:520px; position:relative;">
+    <button class="close-x" onclick="closeGuide()">×</button>
+    <h3>📖 Hướng dẫn sử dụng</h3>
+    <div class="guide-body">
+      <div class="g-item">
+        <strong>🏫 Lớp học</strong><br>
+        Tạo lớp mới, chọn lớp đang dạy hoặc xoá lớp không dùng nữa.
+      </div>
+      <div class="g-item">
+        <strong>🧑‍🎓 Học sinh</strong><br>
+        Nhập mỗi tên trên một dòng rồi bấm <strong>"Bắt đầu theo dõi"</strong>, ví dụ:
+        <code>Nguyễn Văn A
+Trần Thị B</code>
+      </div>
+      <div class="g-item">
+        <strong>✅ Điểm danh</strong><br>
+        Chọn số buổi và <strong>ngày học</strong> tương ứng (giúp dễ xem lại lịch sử sau này), sau đó bấm điểm danh cho từng học sinh.
+      </div>
+      <div class="g-item">
+        <strong>📊 Dữ liệu</strong><br>
+        Xuất file Excel để lưu trữ, nhập lại từ file Excel có sẵn, hoặc reset điểm danh của lớp hiện tại. File Excel cần dòng đầu là tiêu đề, bắt buộc có cột "Họ tên", ô "Có" được tính là điểm danh:
+        <code>Họ tên      | Buổi 1 | Buổi 2
+Nguyễn Văn A | Có     | Vắng Mặt</code>
+      </div>
+      <div class="g-item">
+        <strong>☁️ Dữ liệu lưu trên Firebase</strong><br>
+        Toàn bộ dữ liệu (kể cả ngày học của từng buổi) được lưu trên Firebase Realtime Database, truy cập được từ mọi thiết bị có mạng. Nếu báo lỗi kết nối, hãy kiểm tra Rules của Firebase đã cho phép đọc/ghi chưa.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal confirm/prompt dùng chung -->
+<div class="overlay hidden" id="generic-modal">
+  <div class="dialog" id="generic-dialog"></div>
+</div>
+
+<div id="toast-wrap"></div>
+
+<script>
+/* ============ FIREBASE (REST API) ============ */
+const DB_URL = "https://diemdanh-589b7-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+async function fbGet(path){
+  const res = await fetch(`${DB_URL}/${path}.json`);
+  if(!res.ok) throw new Error("GET " + path + " thất bại");
+  return await res.json();
+}
+async function fbSet(path, value){
+  const res = await fetch(`${DB_URL}/${path}.json`, {
+    method:"PUT",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(value)
+  });
+  if(!res.ok) throw new Error("PUT " + path + " thất bại");
+  return await res.json();
+}
+async function fbDelete(path){
+  const res = await fetch(`${DB_URL}/${path}.json`, { method:"DELETE" });
+  if(!res.ok) throw new Error("DELETE " + path + " thất bại");
+  return true;
+}
+
+function setSyncState(state){
+  const dot = document.getElementById('sync-dot');
+  const text = document.getElementById('sync-text');
+  dot.className = 'sync-dot' + (state === 'busy' ? ' busy' : state === 'err' ? ' err' : '');
+  text.textContent = state === 'busy' ? 'Đang đồng bộ…' : state === 'err' ? 'Lỗi kết nối' : 'Đã đồng bộ';
+}
+async function withSync(fn){
+  setSyncState('busy');
+  try{
+    const r = await fn();
+    setSyncState('ok');
+    return r;
+  }catch(e){
+    console.error(e);
+    setSyncState('err');
+    showToast('Không thể kết nối Firebase. Kiểm tra Rules cho phép đọc/ghi.', true);
+    throw e;
+  }
+}
+
+/* ============ TABS ============ */
+function switchTab(tabId){
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === tabId));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+}
+
+/* ============ TOASTS ============ */
+function showToast(msg, isErr){
+  const wrap = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  t.className = 'toast' + (isErr ? ' err' : '');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(()=>{ t.style.transition='opacity .3s'; t.style.opacity='0'; setTimeout(()=>t.remove(), 300); }, 3000);
+}
+
+/* ============ GENERIC CONFIRM / PROMPT DIALOG ============ */
+function showConfirm(title, msg){
+  return new Promise((resolve)=>{
+    const overlay = document.getElementById('generic-modal');
+    const dialog = document.getElementById('generic-dialog');
+    dialog.innerHTML = `
+      <h3>${title}</h3>
+      <p>${msg}</p>
+      <div class="actions">
+        <button class="btn btn-text" id="gm-cancel">Huỷ</button>
+        <button class="btn btn-filled" id="gm-ok">Xác nhận</button>
+      </div>`;
+    overlay.classList.remove('hidden');
+    const close = (val)=>{ overlay.classList.add('hidden'); resolve(val); };
+    document.getElementById('gm-cancel').onclick = ()=>close(false);
+    document.getElementById('gm-ok').onclick = ()=>close(true);
+  });
+}
+function showPrompt(title, msg, defaultVal){
+  return new Promise((resolve)=>{
+    const overlay = document.getElementById('generic-modal');
+    const dialog = document.getElementById('generic-dialog');
+    dialog.innerHTML = `
+      <h3>${title}</h3>
+      <p>${msg || ''}</p>
+      <input id="gm-input" type="text" value="${defaultVal ?? ''}" style="margin-bottom:16px;" />
+      <div class="actions">
+        <button class="btn btn-text" id="gm-cancel">Huỷ</button>
+        <button class="btn btn-filled" id="gm-ok">Xác nhận</button>
+      </div>`;
+    overlay.classList.remove('hidden');
+    const input = document.getElementById('gm-input');
+    input.focus(); input.select();
+    const close = (val)=>{ overlay.classList.add('hidden'); resolve(val); };
+    document.getElementById('gm-cancel').onclick = ()=>close(null);
+    document.getElementById('gm-ok').onclick = ()=>close(input.value.trim());
+    input.onkeydown = (e)=>{ if(e.key==='Enter') close(input.value.trim()); if(e.key==='Escape') close(null); };
+  });
+}
+
+function openGuide(){ document.getElementById('guide-modal').classList.remove('hidden'); }
+function closeGuide(){ document.getElementById('guide-modal').classList.add('hidden'); }
+
+/* ============ APP STATE ============ */
+const ICONS = ['🫘','🌱','🌿','🌸','🍎'];
+const STAGE_NAMES = ['Gieo hạt','Mọc mầm','Ra lá','Nở hoa','Kết trái'];
+let currentClassId = '';
+let classesCache = {};        // { classId: {name, sessions} }
+let currentData = {};         // { studentId: {name, sessions:[...]} }
+let sessionDatesCache = {};   // { classId: { sessionNumber: 'yyyy-mm-dd' } }
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function formatDateVN(dateStr){
+  if(!dateStr) return '';
+  const [y,m,d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function stepSession(delta){
+  const input = document.getElementById('current-session');
+  const max = parseInt(input.max) || 999;
+  let v = (parseInt(input.value)||1) + delta;
+  v = Math.max(1, Math.min(max, v));
+  input.value = v;
+  onSessionChange();
+}
+
+function onSessionChange(){
+  updateSessionDateField();
+  renderAll();
+}
+
+function updateSessionDateField(){
+  const session = parseInt(document.getElementById('current-session').value) || 1;
+  const stored = (sessionDatesCache[currentClassId] || {})[session];
+  const input = document.getElementById('session-date');
+  input.value = stored || todayStr();
+  document.getElementById('session-date-chip').textContent =
+    `📌 Buổi ${session}${stored ? ' • ' + formatDateVN(stored) : ''}`;
+}
+
+async function saveSessionDate(){
+  if(!currentClassId) return;
+  const session = parseInt(document.getElementById('current-session').value) || 1;
+  const date = document.getElementById('session-date').value;
+  if(!date) return;
+  if(!sessionDatesCache[currentClassId]) sessionDatesCache[currentClassId] = {};
+  sessionDatesCache[currentClassId][session] = date;
+  await withSync(()=> fbSet(`sessionDates/${currentClassId}/${session}`, date));
+  document.getElementById('session-date-chip').textContent = `📌 Buổi ${session} • ${formatDateVN(date)}`;
+  showToast(`Đã lưu ngày ${formatDateVN(date)} cho buổi ${session}`);
+}
+
+function getSessionCount(classId){
+  return (classesCache[classId] && classesCache[classId].sessions) || 40;
+}
+
+function updateLegend(){
+  const total = getSessionCount(currentClassId);
+  const step = Math.max(1, Math.floor(total / 5));
+  const legend = document.getElementById('legend');
+  const ranges = [
+    [0, step-1], [step, step*2-1], [step*2, step*3-1], [step*3, step*4-1], [step*4, total]
+  ];
+  legend.innerHTML = ICONS.map((icon,i)=>`
+    <div class="legend-item">
+      <div class="e">${icon}</div>
+      <div class="t"><b>${STAGE_NAMES[i]}</b><br>${ranges[i][0]}–${ranges[i][1]} buổi</div>
+    </div>`).join('');
+}
+
+async function updateClassSelector(){
+  const select = document.getElementById('class-selector');
+  select.innerHTML = Object.entries(classesCache)
+    .map(([id,c])=>`<option value="${id}">${c.name}</option>`).join('');
+}
+
+/* ============ CLASS MANAGEMENT ============ */
+async function createNewClass(){
+  const name = document.getElementById('new-class-name').value.trim();
+  const sessions = parseInt(document.getElementById('new-class-sessions').value);
+  if(!name || !sessions || sessions <= 0){ showToast('Vui lòng nhập tên lớp và số buổi hợp lệ.', true); return; }
+
+  const classId = 'c' + Date.now();
+  await withSync(async ()=>{
+    await fbSet('classes/' + classId, { name, sessions });
+  });
+  classesCache[classId] = { name, sessions };
+  document.getElementById('new-class-name').value = '';
+  await updateClassSelector();
+  document.getElementById('class-selector').value = classId;
+  showToast(`Đã tạo lớp "${name}"`);
+  await loadClass();
+  switchTab('tab-students');
+}
+
+async function deleteCurrentClass(){
+  if(!currentClassId) return;
+  const name = classesCache[currentClassId]?.name || '';
+  const ok = await showConfirm('Xoá lớp?', `Bạn có chắc muốn xoá lớp "${name}"? Toàn bộ dữ liệu điểm danh sẽ bị mất.`);
+  if(!ok) return;
+
+  await withSync(async ()=>{
+    await fbDelete('classes/' + currentClassId);
+    await fbDelete('attendance/' + currentClassId);
+    await fbDelete('sessionDates/' + currentClassId);
+  });
+  delete classesCache[currentClassId];
+  delete sessionDatesCache[currentClassId];
+  await updateClassSelector();
+  const remaining = Object.keys(classesCache);
+  if(remaining.length > 0){
+    currentClassId = remaining[0];
+    document.getElementById('class-selector').value = currentClassId;
+    await loadClass();
+  } else {
+    currentClassId = '';
+    currentData = {};
+    document.getElementById('students-container').innerHTML = '';
+    document.getElementById('legend').innerHTML = '';
+  }
+  showToast(`Đã xoá lớp "${name}"`);
+}
+
+async function loadClass(){
+  currentClassId = document.getElementById('class-selector').value;
+  if(!currentClassId) return;
+  document.getElementById('current-session').max = getSessionCount(currentClassId);
+  updateLegend();
+
+  const dates = await withSync(()=>fbGet('sessionDates/' + currentClassId));
+  sessionDatesCache[currentClassId] = dates || {};
+  updateSessionDateField();
+
+  await renderAll();
+}
+
+/* ============ STUDENTS / ATTENDANCE ============ */
+async function startTracking(){
+  const input = document.getElementById('student-input').value.trim();
+  if(!currentClassId || !input){ showToast('Vui lòng chọn lớp và nhập học sinh.', true); return; }
+  const names = input.split('\n').map(s=>s.trim()).filter(Boolean);
+  const data = {};
+  names.forEach((name,i)=>{ data['s'+i] = { name, sessions: [] }; });
+
+  await withSync(async ()=>{
+    await fbSet('attendance/' + currentClassId, data);
+  });
+  currentData = data;
+  document.getElementById('student-input').value = '';
+  renderStudents(currentData);
+  showToast(`Đã thêm ${names.length} học sinh`);
+  switchTab('tab-attend');
+}
+
+async function renderAll(){
+  if(!currentClassId) return;
+  const data = await withSync(()=>fbGet('attendance/' + currentClassId));
+  currentData = data || {};
+  renderStudents(currentData);
+}
+
+function renderStudents(data){
+  const container = document.getElementById('students-container');
+  const entries = Object.entries(data || {});
+  if(entries.length === 0){
+    container.innerHTML = `<div class="empty-state"><div class="emoji">🌱</div>Chưa có học sinh nào trong lớp này.<br>Hãy sang tab "Học sinh" để nhập danh sách.</div>`;
+    return;
+  }
+  container.innerHTML = '';
+  const session = parseInt(document.getElementById('current-session').value) || 1;
+  const total = getSessionCount(currentClassId);
+
+  entries.forEach(([studentId, student])=>{
+    const sessions = student.sessions || [];
+    const attended = sessions.filter(s => s <= session).length;
+    const absent = session - attended;
+    const remaining = Math.max(0, total - session);
+    const stage = Math.min(4, Math.floor((attended / total) * 5));
+    const alreadyMarked = sessions.includes(session);
+    const isDone = attended >= total;
+
+    const card = document.createElement('div');
+    card.className = 'student-card';
+    card.innerHTML = `
+      <div class="student-top">
+        <div class="tree-emoji">${ICONS[stage]}</div>
+        <div>
+          <div class="student-name">${student.name}</div>
+          <div class="stage-label">${STAGE_NAMES[stage]}</div>
+        </div>
+      </div>
+      <div class="stage-track">
+        ${ICONS.map((_,i)=>`<div class="stage-seg ${i<=stage ? 'filled':''}"></div>`).join('')}
+      </div>
+      <div class="stats-row">
+        <span>Hoàn thành <b>${attended}/${total}</b></span>
+        <span>Vắng <b>${absent}</b></span>
+        <span>Còn <b>${remaining}</b></span>
+      </div>
+      <button class="mark-btn ${isDone ? 'done' : alreadyMarked ? 'marked' : 'can'}"
+        ${isDone ? 'disabled' : ''}
+        onclick="markAttendance('${studentId}')">
+        ${isDone ? '🍎 Đã hoàn thành' : alreadyMarked ? '↩ Gỡ điểm danh' : '✅ Điểm danh'}
+      </button>
+    `;
+    container.appendChild(card);
+  });
+}
+
+async function markAttendance(studentId){
+  const session = parseInt(document.getElementById('current-session').value) || 1;
+  if(!currentData[studentId]) currentData[studentId] = { name:'', sessions:[] };
+  const sessions = currentData[studentId].sessions || [];
+  const idx = sessions.indexOf(session);
+  let removing = false;
+  if(idx === -1){
+    sessions.push(session);
+  } else {
+    const ok = await showConfirm('Gỡ điểm danh?', 'Học sinh này đã được điểm danh buổi này. Bạn có muốn gỡ không?');
+    if(!ok) return;
+    sessions.splice(idx, 1);
+    removing = true;
+  }
+  currentData[studentId].sessions = sessions;
+
+  await withSync(async ()=>{
+    await fbSet(`attendance/${currentClassId}/${studentId}/sessions`, sessions);
+  });
+
+  // Auto-lưu ngày học cho buổi này nếu chưa có, để dễ xem lại lịch sử
+  if(!removing && !(sessionDatesCache[currentClassId] || {})[session]){
+    const dateVal = document.getElementById('session-date').value || todayStr();
+    if(!sessionDatesCache[currentClassId]) sessionDatesCache[currentClassId] = {};
+    sessionDatesCache[currentClassId][session] = dateVal;
+    await withSync(()=> fbSet(`sessionDates/${currentClassId}/${session}`, dateVal));
+    document.getElementById('session-date-chip').textContent = `📌 Buổi ${session} • ${formatDateVN(dateVal)}`;
+  }
+
+  renderStudents(currentData);
+  showToast(removing ? 'Đã gỡ điểm danh' : 'Đã điểm danh');
+  checkAllCompleted(currentData);
+}
+
+async function resetAllData(){
+  if(!currentClassId) return;
+  const ok = await showConfirm('Reset điểm danh?', 'Bạn có chắc muốn xoá toàn bộ điểm danh của lớp này? Danh sách học sinh vẫn được giữ nguyên. Ngày học đã lưu cũng sẽ bị xoá.');
+  if(!ok) return;
+
+  const resetData = {};
+  Object.entries(currentData).forEach(([id, s])=>{ resetData[id] = { name: s.name, sessions: [] }; });
+  await withSync(async ()=>{
+    await fbSet('attendance/' + currentClassId, resetData);
+    await fbDelete('sessionDates/' + currentClassId);
+  });
+  currentData = resetData;
+  sessionDatesCache[currentClassId] = {};
+  updateSessionDateField();
+  renderStudents(currentData);
+  showToast('Đã reset điểm danh lớp này');
+}
+
+function checkAllCompleted(data){
+  const total = getSessionCount(currentClassId);
+  const entries = Object.values(data);
+  if(entries.length === 0) return;
+  const allDone = entries.every(s => (s.sessions||[]).length >= total);
+  if(allDone) showToast('🎉 Tất cả học sinh đã hoàn thành!');
+}
+
+/* ============ EXPORT / IMPORT EXCEL ============ */
+function exportToExcel(){
+  if(!currentClassId){ showToast('Vui lòng chọn lớp trước.', true); return; }
+  const currentSession = parseInt(document.getElementById('current-session').value) || 1;
+  const dates = sessionDatesCache[currentClassId] || {};
+  const header = ['Họ tên'];
+  for(let i=1;i<=currentSession;i++){
+    const d = dates[i] ? ` (${formatDateVN(dates[i])})` : '';
+    header.push(`Buổi ${i}${d}`);
+  }
+  const rows = [header];
+  Object.values(currentData).forEach(student=>{
+    const row = [student.name];
+    for(let i=1;i<=currentSession;i++){
+      row.push((student.sessions||[]).includes(i) ? 'Có' : 'Vắng Mặt');
+    }
+    rows.push(row);
+  });
+  const sheet = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, sheet, 'DiemDanhChiTiet');
+  const className = classesCache[currentClassId]?.name || 'Lop';
+  XLSX.writeFile(wb, `${className}-ChiTietDiemDanh.xlsx`);
+  showToast('Đã xuất file Excel');
+}
+
+async function importFromExcel(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e){
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
+      if(!rows.length || rows[0][0] !== 'Họ tên'){ showToast('File không đúng định dạng!', true); return; }
+
+      const sessionCountStr = await showPrompt('Số buổi học', 'Nhập tổng số buổi học của lớp:', '40');
+      const sessionCount = parseInt(sessionCountStr);
+      if(!sessionCount || sessionCount <= 0){ showToast('Số buổi không hợp lệ!', true); return; }
+
+      const importedData = {};
+      let i = 0;
+      for(let r=1; r<rows.length; r++){
+        const row = rows[r];
+        const name = row[0]?.toString().trim();
+        if(!name) continue;
+        const sessions = [];
+        for(let j=1; j<=sessionCount; j++){
+          if(row[j] === 'Có') sessions.push(j);
+        }
+        importedData['s'+i] = { name, sessions };
+        i++;
+      }
+
+      const className = await showPrompt('Tên lớp', 'Nhập tên lớp để lưu dữ liệu:', '');
+      if(!className) return;
+
+      const classId = 'c' + Date.now();
+      await withSync(async ()=>{
+        await fbSet('classes/' + classId, { name: className, sessions: sessionCount });
+        await fbSet('attendance/' + classId, importedData);
+      });
+      classesCache[classId] = { name: className, sessions: sessionCount };
+      await updateClassSelector();
+      document.getElementById('class-selector').value = classId;
+      showToast(`Đã nhập lớp "${className}" từ Excel`);
+      await loadClass();
+      switchTab('tab-attend');
+    }catch(err){
+      console.error(err);
+      showToast('Có lỗi khi đọc file Excel.', true);
+    }finally{
+      event.target.value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ============ INIT ============ */
+async function init(){
+  try{
+    const classes = await fbGet('classes');
+    classesCache = classes || {};
+    await updateClassSelector();
+    const first = Object.keys(classesCache)[0];
+    if(first){
+      document.getElementById('class-selector').value = first;
+      await loadClass();
+    }
+    setSyncState('ok');
+  }catch(e){
+    console.error(e);
+    setSyncState('err');
+    showToast('Không thể kết nối Firebase. Kiểm tra đường dẫn hoặc Rules.', true);
+  }finally{
+    document.getElementById('page-loading').classList.add('hidden');
+  }
+}
+init();
+</script>
+</body>
+</html>
